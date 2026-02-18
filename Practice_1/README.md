@@ -1,0 +1,1 @@
+This is first practice containing python training and first labaratory work from ejudge.
