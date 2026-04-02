@@ -1,4 +1,4 @@
--- Функция 1: поиск контактов по паттерну (имя или телефон)
+-- поиск контактов по паттерну (имя или телефон)
 CREATE OR REPLACE FUNCTION search_contacts(p_pattern TEXT)
 RETURNS TABLE(id INT, first_name VARCHAR, phone VARCHAR) AS $$
 BEGIN
@@ -12,7 +12,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- Функция 2: получение контактов с пагинацией
+-- получение контактов с пагинацией
 CREATE OR REPLACE FUNCTION get_contacts_paginated(p_limit INT, p_offset INT)
 RETURNS TABLE(id INT, first_name VARCHAR, phone VARCHAR) AS $$
 BEGIN

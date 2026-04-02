@@ -1,4 +1,4 @@
--- Процедура 1: upsert — вставить или обновить телефон если имя уже есть
+-- upsert — вставить или обновить телефон если имя уже есть
 CREATE OR REPLACE PROCEDURE upsert_contact(p_name VARCHAR, p_phone VARCHAR)
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -11,7 +11,7 @@ END;
 $$;
 
 
--- Процедура 2: массовая вставка из списка с валидацией телефона
+-- массовая вставка из списка с валидацией телефона
 -- Возвращает некорректные записи через временную таблицу
 CREATE OR REPLACE PROCEDURE insert_many_contacts(
     p_names VARCHAR[],
@@ -54,7 +54,7 @@ END;
 $$;
 
 
--- Процедура 3: удаление по имени или телефону
+-- удаление по имени или телефону
 CREATE OR REPLACE PROCEDURE delete_contact(p_name VARCHAR DEFAULT NULL, p_phone VARCHAR DEFAULT NULL)
 LANGUAGE plpgsql AS $$
 BEGIN
