@@ -1,0 +1,142 @@
+[
+  {
+    "id": 7,
+    "first_name": "Alibek",
+    "last_name": "Nurlybayev",
+    "email": "alibek@gmail.com",
+    "birthday": "1994-04-17",
+    "group": "Friend",
+    "phones": [
+      {
+        "phone": "87041234570",
+        "type": "mobile"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "first_name": "Aruzhan",
+    "last_name": "Sarsenova",
+    "email": "aruzhan@gmail.com",
+    "birthday": "1998-07-15",
+    "group": "Friend",
+    "phones": [
+      {
+        "phone": "87011234567",
+        "type": "mobile"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "first_name": "Darkhan",
+    "last_name": "Juzz",
+    "email": "darkhan@mail.com",
+    "birthday": "1995-03-22",
+    "group": "Family",
+    "phones": [
+      {
+        "phone": "87771234567",
+        "type": "home"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "first_name": "Dinara",
+    "last_name": "Sultanova",
+    "email": "dinaras@mail.com",
+    "birthday": "1997-08-29",
+    "group": "Friend",
+    "phones": [
+      {
+        "phone": "87051234571",
+        "type": "mobile"
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "first_name": "Ersultan",
+    "last_name": "Kaliaskar",
+    "email": "ersultan@edu.kz",
+    "birthday": "1993-12-03",
+    "group": "Work",
+    "phones": [
+      {
+        "phone": "87061234572",
+        "type": "work"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "first_name": "Gulnur",
+    "last_name": "Seitova",
+    "email": "gulnur@gmail.com",
+    "birthday": "1996-06-25",
+    "group": "Family",
+    "phones": [
+      {
+        "phone": "87071234573",
+        "type": "home"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "first_name": "Madina",
+    "last_name": "Zhakupova",
+    "email": "madina@family.kz",
+    "birthday": "2000-01-10",
+    "group": "Family",
+    "phones": [
+      {
+        "phone": "87031234569",
+        "type": "home"
+      }
+    ]
+  },
+  {
+    "id": 1,
+    "first_name": "Nurkeldi",
+    "last_name": "Baimen",
+    "email": "nurkeldi@example.com",
+    "birthday": "1990-05-14",
+    "group": "Work",
+    "phones": [
+      {
+        "phone": "87001112233",
+        "type": "mobile"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "first_name": "Olzhas",
+    "last_name": "Kydyrbai",
+    "email": "olzhas@work.com",
+    "birthday": "1985-11-30",
+    "group": "Friend",
+    "phones": [
+      {
+        "phone": "87009998877",
+        "type": "work"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "first_name": "Yerbol",
+    "last_name": "Tulegenov",
+    "email": "yerbol@work.com",
+    "birthday": "1992-09-23",
+    "group": "Work",
+    "phones": [
+      {
+        "phone": "87021234568",
+        "type": "work"
+      }
+    ]
+  }
+]

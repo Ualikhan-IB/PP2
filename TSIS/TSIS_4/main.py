@@ -4,7 +4,7 @@ import sys
 import json
 import random
 from config import *
-from game import Snake, Food, PoisonFood, PowerUp, generate_obstacles, POWERUP_TYPES
+from game import Snake, Food, PoisonFood, SlowField, PowerUp, generate_obstacles, POWERUP_TYPES
 from db import db
 
 # Initialize pygame
@@ -318,6 +318,7 @@ def game_loop(username):
     snake = Snake()
     food = Food()
     poison = PoisonFood()
+    slow_field = SlowField()
     powerups = [PowerUp(p[0], p[1], p[2]) for p in POWERUP_TYPES]
     
     food.respawn(snake.body)
@@ -338,7 +339,7 @@ def game_loop(username):
     while running:
         current_time = pygame.time.get_ticks()
         frame_count += 1
-        
+                
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
@@ -350,6 +351,11 @@ def game_loop(username):
         
         snake.update_shield(current_time)
         
+        # Reset slow field effect
+        if hasattr(snake, 'slow_until') and current_time >= snake.slow_until and snake.slow_until > 0:
+            move_delay = snake.original_move_delay
+            snake.slow_until = 0
+        
         # Power-up expiration
         if active_powerup and current_time >= powerup_end_time:
             if active_powerup == "speed_boost":
@@ -358,25 +364,49 @@ def game_loop(username):
                 move_delay = BASE_MOVE
             active_powerup = None
         
-        # Spawn power-ups
+        
+        # Power-up expiration
+        if active_powerup and current_time >= powerup_end_time:
+            if active_powerup == "speed_boost":
+                move_delay = BASE_MOVE
+            elif active_powerup == "slow_motion":
+                move_delay = BASE_MOVE
+            active_powerup = None
+        
+        # Check if any power-up is active
         powerup_active = any(p.active for p in powerups)
+        
+        # Spawn power-ups
         if not powerup_active and current_time - last_powerup_spawn > 5000:
             occupied = set()
             if not food.expired(current_time):
                 occupied.add(food.pos)
             if poison.active and not poison.expired(current_time):
                 occupied.add(poison.pos)
+            if slow_field.active and not slow_field.expired(current_time):
+                occupied.add(slow_field.pos)
+            
+            # Try to spawn each power-up
             for pu in powerups:
-                if not pu.active and pu.spawn_at_free_cell(snake.body, occupied, [obs.pos for obs in obstacles]):
-                    last_powerup_spawn = current_time
-                    break
+                if not pu.active:
+                    if pu.spawn_at_free_cell(snake.body, occupied, [obs.pos for obs in obstacles]):
+                        last_powerup_spawn = current_time
+                        print(f"Spawned: {pu.type}")  # Debug message
+                        break
         
         # Spawn poison
         if not poison.active and random.random() < 0.02 and current_time - last_poison_spawn > 5000:
             if poison.spawn(snake.body, [obs.pos for obs in obstacles]):
                 last_poison_spawn = current_time
         
+        # Spawn slow field
+        if not slow_field.active and random.random() < 0.03 and current_time - last_poison_spawn > 3000:
+            slow_field.spawn(snake.body, [obs.pos for obs in obstacles])
+        
         # Movement
+        if move_delay <= 0:
+            move_delay = 1
+        
         if frame_count % move_delay == 0:
             current_head = snake.body[0]
             
@@ -398,7 +428,7 @@ def game_loop(username):
                 if food_eaten >= FOOD_PER_LEVEL:
                     level += 1
                     food_eaten = 0
-                    move_delay = max(3, BASE_MOVE - min(5, level - 1))
+                    move_delay = max(5, BASE_MOVE - min(5, level - 1))
                     obstacles = generate_obstacles(level, snake.body, new_head)
             
             # Poison
@@ -409,6 +439,16 @@ def game_loop(username):
                 poison.active = False
                 score = max(0, score - 2)
             
+            # Slow Field
+            if slow_field.active and not slow_field.expired(current_time) and new_head == slow_field.pos:
+                slow_field.active = False
+                original_move_delay = move_delay
+                move_delay = min(25, move_delay + 5)
+                if move_delay <= 0:
+                    move_delay = 1
+                snake.slow_until = current_time + 3000
+                snake.original_move_delay = original_move_delay
+            
             # Power-ups
             for pu in powerups:
                 if pu.active and not pu.expired(current_time) and new_head == pu.pos:
@@ -416,11 +456,14 @@ def game_loop(username):
                     active_powerup = pu.type
                     powerup_end_time = current_time + POWERUP_DURATION
                     if pu.type == "speed_boost":
-                        move_delay = max(3, move_delay - 3)
+                        move_delay = max(5, move_delay - 4)
                     elif pu.type == "slow_motion":
-                        move_delay = min(15, move_delay + 3)
+                        move_delay = min(25, move_delay + 4)
                     elif pu.type == "shield":
                         snake.set_shield(POWERUP_DURATION, current_time)
+                    
+                    if move_delay <= 0:
+                        move_delay = 1
         
         # Cleanup expired items
         for pu in powerups:
@@ -430,11 +473,14 @@ def game_loop(username):
             food.respawn(snake.body, [obs.pos for obs in obstacles])
         if poison.active and poison.expired(current_time):
             poison.active = False
+        if slow_field.active and slow_field.expired(current_time):
+            slow_field.active = False
         
         # Draw
         draw_field(screen, obstacles, game_settings["grid_overlay"])
         food.draw(screen, current_time, font_small)
         poison.draw(screen, current_time, font_small)
+        slow_field.draw(screen, current_time, font_small)
         for pu in powerups:
             pu.draw(screen, current_time, font_small)
         snake.draw(screen, tuple(game_settings["snake_color"]), tuple(game_settings["snake_body_color"]))
@@ -442,9 +488,14 @@ def game_loop(username):
         powerup_time_left = max(0, powerup_end_time - current_time) if active_powerup else 0
         draw_hud(screen, score, level, personal_best, active_powerup, powerup_time_left)
         
+        # Show active effects
         if snake.shield_active:
-            shield_text = font_small.render("SHIELD ACTIVE", True, (255,200,0))
+            shield_text = font_small.render("🛡 SHIELD ACTIVE 🛡", True, (100, 200, 255))
             screen.blit(shield_text, (10, PANEL_H - 15))
+        
+        if hasattr(snake, 'slow_until') and snake.slow_until > current_time:
+            slow_text = font_small.render("🐌 SLOWED 🐌", True, (255, 165, 0))
+            screen.blit(slow_text, (WIDTH//2 - slow_text.get_width()//2, PANEL_H - 15))
         
         pygame.display.flip()
         clock.tick(BASE_FPS)

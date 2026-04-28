@@ -1,6 +1,6 @@
 """
-Racer Game Core - All game mechanics
-Fixed: Player movement, event handling, all features
+Racer Game - TSIS3 Complete Edition
+Fixed: Health system, Nitro boost with trail, No overlapping objects, Balanced difficulty
 """
 
 import pygame
@@ -29,6 +29,7 @@ PURPLE = (160, 32, 240)
 CYAN = (0, 220, 220)
 BROWN = (139, 69, 19)
 DARK_RED = (139, 0, 0)
+PINK = (255, 100, 150)
 
 # Coin types
 COIN_TYPES = [
@@ -42,70 +43,64 @@ _COIN_WEIGHTS = [ct[0] for ct in COIN_TYPES]
 # Power-ups
 POWERUP_NITRO = "nitro"
 POWERUP_SHIELD = "shield"
-POWERUP_REPAIR = "repair"
+POWERUP_HEALTH = "health"
 
 POWERUP_TYPES = [
-    (POWERUP_NITRO, YELLOW, "N", "Nitro Boost!", 300),
-    (POWERUP_SHIELD, CYAN, "S", "Shield Active!", 300),
-    (POWERUP_REPAIR, GREEN, "R", "Repair!", 200),
+    (POWERUP_NITRO, YELLOW, "N", "Nitro Boost!", 720),  # 3 seconds at 60fps
+    (POWERUP_SHIELD, CYAN, "S", "Shield Active!", 900),
+    (POWERUP_HEALTH, GREEN, "+", "+5 Health!", 0),
 ]
 
-# Obstacle types
+# Obstacle types with damage values
 OBSTACLE_OIL = "oil"
 OBSTACLE_POTHOLE = "pothole"
 OBSTACLE_BARRIER = "barrier"
 
 OBSTACLE_TYPES = [
-    (OBSTACLE_OIL, BROWN, "OIL", "Slow zone", 1.5),
-    (OBSTACLE_POTHOLE, DARK_RED, "HOLE", "Damage", 1),
-    (OBSTACLE_BARRIER, GRAY, "|||", "Stop", 2),
+    (OBSTACLE_OIL, BROWN, "OIL", "Oil spill", 2, 0.5),      # damage, speed reduction
+    (OBSTACLE_POTHOLE, DARK_RED, "HOLE", "Pothole", 3, 1.0),
+    (OBSTACLE_BARRIER, GRAY, "|||", "Barrier", 5, 0.3),
 ]
-
-# Event types
-EVENT_NITRO_BOOST = "nitro_boost"
-EVENT_SPEED_BUMP = "speed_bump"
-EVENT_MOVING_BARRIER = "moving_barrier"
 
 
 class PlayerCar:
-    """Player-controlled car - FIXED MOVEMENT"""
+    """Player-controlled car with health system"""
     
     WIDTH = 40
     HEIGHT = 60
     SPEED = 6
+    MAX_HEALTH = 10
     
     def __init__(self, car_color=BLUE):
         self.x = SCREEN_WIDTH // 2 - self.WIDTH // 2
         self.y = SCREEN_HEIGHT - self.HEIGHT - 20
         self.rect = pygame.Rect(self.x, self.y, self.WIDTH, self.HEIGHT)
         self.color = car_color
+        self.health = self.MAX_HEALTH
         self.speed_multiplier = 1.0
         self.shield_active = False
         self.shield_timer = 0
+        self.nitro_active = False
         self.nitro_timer = 0
+        self.nitro_trail = []  # For visual effect
         
     def move_left(self):
-        """Move left if within bounds"""
         if self.rect.left > ROAD_LEFT:
             self.rect.x -= self.SPEED
     
     def move_right(self):
-        """Move right if within bounds"""
         if self.rect.right < ROAD_RIGHT:
             self.rect.x += self.SPEED
     
     def move_up(self):
-        """Move up if within bounds"""
         if self.rect.top > 0:
             self.rect.y -= self.SPEED
     
     def move_down(self):
-        """Move down if within bounds"""
         if self.rect.bottom < SCREEN_HEIGHT:
             self.rect.y += self.SPEED
     
     def get_lane(self):
-        """Return current lane index (0, 1, 2)"""
         for i in range(LANE_COUNT):
             lane_center = ROAD_LEFT + LANE_WIDTH * i + LANE_WIDTH // 2
             if abs(self.rect.centerx - lane_center) < LANE_WIDTH // 2:
@@ -113,33 +108,68 @@ class PlayerCar:
         return 1
     
     def apply_nitro(self, duration):
-        self.speed_multiplier = 1.8
+        self.nitro_active = True
         self.nitro_timer = duration
+        self.speed_multiplier = 2.0
     
     def apply_shield(self, duration):
         self.shield_active = True
         self.shield_timer = duration
     
+    def apply_health(self, amount):
+        self.health = min(self.MAX_HEALTH, self.health + amount)
+    
+    def take_damage(self, amount):
+        if not self.shield_active:
+            self.health -= amount
+            return True  # Took damage
+        return False  # Shield protected
+    
     def update(self, dt):
+        # Update nitro
         if self.nitro_timer > 0:
             self.nitro_timer -= dt
+            # Add trail effect
+            self.nitro_trail.append(self.rect.centerx)
+            if len(self.nitro_trail) > 10:
+                self.nitro_trail.pop(0)
             if self.nitro_timer <= 0:
+                self.nitro_active = False
                 self.speed_multiplier = 1.0
+                self.nitro_trail.clear()
+        else:
+            self.nitro_active = False
         
+        # Update shield
         if self.shield_timer > 0:
             self.shield_timer -= dt
             if self.shield_timer <= 0:
                 self.shield_active = False
     
     def draw(self, surface):
+        # Draw nitro trail
+        if self.nitro_active and self.nitro_trail:
+            for i, x_pos in enumerate(self.nitro_trail):
+                alpha = int(255 * (i / len(self.nitro_trail)))
+                trail_color = (255, 100, 0, alpha)
+                pygame.draw.circle(surface, (255, 100, 0), 
+                                 (int(x_pos), self.rect.bottom - i * 5), 5)
+        
         # Draw shield effect
         if self.shield_active:
             pygame.draw.circle(surface, CYAN, self.rect.center, self.WIDTH // 2 + 5, 3)
         
+        # Draw car body
         pygame.draw.rect(surface, self.color, self.rect, border_radius=8)
         pygame.draw.rect(surface, (180, 220, 255),
                          (self.rect.x + 6, self.rect.y + 8, 28, 16),
                          border_radius=4)
+        
+        # Draw nitro flames
+        if self.nitro_active:
+            pygame.draw.rect(surface, (255, 100, 0),
+                           (self.rect.x + 10, self.rect.bottom - 5, 20, 8),
+                           border_radius=3)
 
 
 class EnemyCar:
@@ -171,14 +201,13 @@ class EnemyCar:
     
     def draw(self, surface):
         pygame.draw.rect(surface, self.color, self.rect, border_radius=8)
-        # Windows
         pygame.draw.rect(surface, (180, 220, 255),
                          (self.rect.x + 6, self.rect.y + 8, 28, 16),
                          border_radius=4)
 
 
 class Obstacle:
-    """Road obstacle (oil spill, pothole, barrier)"""
+    """Road obstacle with damage"""
     
     SIZE = 25
     
@@ -187,12 +216,13 @@ class Obstacle:
         self.lane = lane
         lane_center = ROAD_LEFT + LANE_WIDTH * lane + LANE_WIDTH // 2
         
-        for otype, color, symbol, effect, penalty in OBSTACLE_TYPES:
+        for otype, color, symbol, effect, damage, speed_reduction in OBSTACLE_TYPES:
             if otype == obstacle_type:
                 self.color = color
                 self.symbol = symbol
                 self.effect = effect
-                self.penalty = penalty
+                self.damage = damage
+                self.speed_reduction = speed_reduction
                 break
         
         self.rect = pygame.Rect(
@@ -202,6 +232,7 @@ class Obstacle:
             self.SIZE
         )
         self.speed = speed
+        self.active = True
     
     def update(self):
         self.rect.y += self.speed
@@ -218,60 +249,9 @@ class Obstacle:
         else:
             for i in range(3):
                 pygame.draw.line(surface, WHITE,
-                                 (self.rect.x + 5, self.rect.y + i * 8),
-                                 (self.rect.right - 5, self.rect.y + i * 8), 2)
+                               (self.rect.x + 5, self.rect.y + i * 8),
+                               (self.rect.right - 5, self.rect.y + i * 8), 2)
         
-        font = pygame.font.SysFont("Arial", 12, bold=True)
-        text = font.render(self.symbol, True, WHITE)
-        surface.blit(text, (self.rect.centerx - text.get_width() // 2,
-                            self.rect.centery - text.get_height() // 2))
-
-
-class DynamicEvent:
-    """Dynamic road event"""
-    
-    def __init__(self, event_type, lane, y_pos=-100):
-        self.type = event_type
-        self.lane = lane
-        lane_center = ROAD_LEFT + LANE_WIDTH * lane + LANE_WIDTH // 2
-        
-        if event_type == EVENT_NITRO_BOOST:
-            self.width = 60
-            self.height = 20
-            self.color = (0, 255, 100)
-            self.symbol = "BOOST"
-        elif event_type == EVENT_SPEED_BUMP:
-            self.width = 50
-            self.height = 15
-            self.color = (139, 69, 19)
-            self.symbol = "BUMP"
-        else:
-            self.width = 30
-            self.height = 30
-            self.color = (100, 100, 100)
-            self.symbol = "||"
-        
-        self.rect = pygame.Rect(
-            lane_center - self.width // 2,
-            y_pos,
-            self.width,
-            self.height
-        )
-        self.speed = 3
-        self.direction = 1
-    
-    def update(self):
-        self.rect.y += self.speed
-        if self.type == EVENT_MOVING_BARRIER:
-            self.rect.x += self.direction * 2
-            if self.rect.left < ROAD_LEFT or self.rect.right > ROAD_RIGHT:
-                self.direction *= -1
-    
-    def is_off_screen(self):
-        return self.rect.top > SCREEN_HEIGHT
-    
-    def draw(self, surface):
-        pygame.draw.rect(surface, self.color, self.rect, border_radius=3)
         font = pygame.font.SysFont("Arial", 10, bold=True)
         text = font.render(self.symbol, True, WHITE)
         surface.blit(text, (self.rect.centerx - text.get_width() // 2,
@@ -318,7 +298,7 @@ class PowerUp:
     
     def draw(self, surface):
         # Pulsing effect
-        alpha = abs(math.sin(self.age * 0.05)) * 50 + 205
+        pulse = abs(math.sin(self.age * 0.05)) * 50 + 205
         pygame.draw.circle(surface, self.color, self.rect.center, self.SIZE // 2)
         pygame.draw.circle(surface, (255, 255, 255), self.rect.center, self.SIZE // 2, 2)
         
@@ -395,20 +375,18 @@ class Game:
             'hard': 1.3
         }.get(settings.get('difficulty', 'medium'), 1.0)
         
-        # Spawn timers
+        # Spawn timers (increased intervals to reduce clutter)
         self.enemy_timer = 0
         self.obstacle_timer = 0
         self.coin_timer = 0
         self.powerup_timer = 0
-        self.event_timer = 0
         
-        # Spawn intervals
+        # Spawn intervals (slower spawning)
         self.intervals = {
-            'enemy': 90,
-            'obstacle': 120,
-            'coin': 45,
-            'powerup': 300,
-            'event': 400
+            'enemy': 120,      # ~2 seconds at 60fps
+            'obstacle': 180,   # ~3 seconds
+            'coin': 60,        # ~1 second
+            'powerup': 400,    # ~6.7 seconds
         }
         
         # Game objects
@@ -416,7 +394,9 @@ class Game:
         self.obstacles = []
         self.coins = []
         self.powerups = []
-        self.events = []
+        
+        # Track occupied lanes for spawning
+        self.occupied_lanes = {'enemy': [], 'obstacle': [], 'coin': [], 'powerup': []}
         
         # Active power-up
         self.active_powerup = None
@@ -427,6 +407,12 @@ class Game:
         # Road scrolling
         self.road_offset = 0
         self.sound_on = settings.get('sound', True)
+        
+        # Damage cooldown (prevent multiple damage from same obstacle)
+        self.damage_cooldown = 0
+        
+        # Score multiplier based on distance
+        self.score_multiplier = 1
     
     def handle_events(self):
         """Handle keyboard input for movement"""
@@ -456,35 +442,52 @@ class Game:
     
     def update(self, dt):
         """Update game state"""
-        if self.paused:
+        if self.paused or not self.running:
             return
         
-        # Update current speed
+        # Update damage cooldown
+        if self.damage_cooldown > 0:
+            self.damage_cooldown -= dt
+        
+        # Update current speed with difficulty
         self.current_speed = self.base_speed * self.player.speed_multiplier
         self.current_speed *= self.difficulty_multiplier
+        self.current_speed = min(self.current_speed, 15)  # Cap speed
         
         # Update distance and score
         self.distance_timer += self.current_speed * 0.1
         if self.distance_timer >= 1:
             self.distance += 1
             self.distance_timer = 0
-            self.score += 1
+            # Score increases with distance
+            score_gain = 1 * self.score_multiplier
+            self.score += score_gain
+            
+            # Increase score multiplier every 500m
+            if self.distance % 500 == 0 and self.distance > 0:
+                self.score_multiplier += 0.5
+                self.set_message(f"Score x{self.score_multiplier}!")
         
         # Update player
         self.player.update(dt)
+        
+        # Check game over condition
+        if self.player.health <= 0:
+            self.running = False
         
         # Update power-up timers
         if self.powerup_timer_active > 0:
             self.powerup_timer_active -= dt
             if self.powerup_timer_active <= 0:
                 self.active_powerup = None
-                self.player.speed_multiplier = 1.0
+                if not self.player.nitro_active:
+                    self.player.speed_multiplier = 1.0
                 self.player.shield_active = False
         
         if self.message_timer > 0:
             self.message_timer -= dt
         
-        # Spawn objects (adjust intervals by difficulty)
+        # Spawn objects
         self.spawn_objects()
         
         # Update all objects
@@ -492,7 +495,6 @@ class Game:
         self.update_obstacles()
         self.update_coins()
         self.update_powerups()
-        self.update_events()
         
         # Check collisions
         self.check_collisions()
@@ -500,51 +502,61 @@ class Game:
         # Update scrolling road
         self.road_offset = (self.road_offset + int(self.current_speed)) % 80
     
+    def get_free_lane(self, object_type, exclude_lane=None):
+        """Get a free lane for spawning, avoiding occupied lanes"""
+        occupied = self.occupied_lanes.get(object_type, [])
+        available = [l for l in range(LANE_COUNT) if l not in occupied]
+        
+        if exclude_lane is not None and exclude_lane in available:
+            available.remove(exclude_lane)
+        
+        if available:
+            return random.choice(available)
+        return random.randint(0, LANE_COUNT - 1)
+    
+    def update_occupied_lanes(self):
+        """Update which lanes are occupied by active objects"""
+        self.occupied_lanes = {
+            'enemy': [e.lane for e in self.enemies if e.rect.y < SCREEN_HEIGHT * 0.7],
+            'obstacle': [o.lane for o in self.obstacles if o.rect.y < SCREEN_HEIGHT * 0.7],
+            'coin': [c.lane for c in self.coins if c.rect.y < SCREEN_HEIGHT * 0.7],
+            'powerup': [p.lane for p in self.powerups if p.rect.y < SCREEN_HEIGHT * 0.7],
+        }
+    
     def spawn_objects(self):
-        """Spawn enemies, obstacles, coins, powerups, and events"""
-        # Adjust spawn rate by difficulty
-        spawn_mult = self.difficulty_multiplier
+        """Spawn enemies, obstacles, coins, and powerups with lane management"""
+        self.update_occupied_lanes()
         
         # Spawn enemies
         self.enemy_timer += 1
-        if self.enemy_timer >= int(self.intervals['enemy'] / spawn_mult):
-            self.enemy_timer = 0
-            # Avoid spawning directly on player
-            player_lane = self.player.get_lane()
-            lane = random.choice([l for l in range(LANE_COUNT) 
-                                 if l != player_lane or random.random() > 0.5])
+        if self.enemy_timer >= self.intervals['enemy']:
+            self.enemy_timer = random.randint(-30, 0)  # Randomize timing
+            lane = self.get_free_lane('enemy')
             self.enemies.append(EnemyCar(self.current_speed, lane))
         
-        # Spawn obstacles
+        # Spawn obstacles (less frequent)
         self.obstacle_timer += 1
-        if self.obstacle_timer >= int(self.intervals['obstacle'] / spawn_mult):
-            self.obstacle_timer = 0
-            lane = random.randint(0, LANE_COUNT - 1)
-            obs_type = random.choice([OBSTACLE_OIL, OBSTACLE_POTHOLE, OBSTACLE_BARRIER])
-            self.obstacles.append(Obstacle(obs_type, lane, self.current_speed))
+        if self.obstacle_timer >= self.intervals['obstacle']:
+            self.obstacle_timer = random.randint(-20, 0)
+            lane = self.get_free_lane('obstacle', self.player.get_lane())
+            if random.random() < 0.7:  # 70% chance to spawn obstacle
+                obs_type = random.choice([OBSTACLE_OIL, OBSTACLE_POTHOLE, OBSTACLE_BARRIER])
+                self.obstacles.append(Obstacle(obs_type, lane, self.current_speed))
         
         # Spawn coins
         self.coin_timer += 1
         if self.coin_timer >= self.intervals['coin']:
-            self.coin_timer = 0
-            lane = random.randint(0, LANE_COUNT - 1)
+            self.coin_timer = random.randint(-20, 0)
+            lane = self.get_free_lane('coin')
             self.coins.append(Coin(lane, self.current_speed))
         
-        # Spawn power-ups
+        # Spawn power-ups (rare)
         self.powerup_timer += 1
-        if self.powerup_timer >= self.intervals['powerup'] and len(self.powerups) < 2:
-            self.powerup_timer = 0
-            lane = random.randint(0, LANE_COUNT - 1)
-            ptype = random.choice([POWERUP_NITRO, POWERUP_SHIELD, POWERUP_REPAIR])
+        if self.powerup_timer >= self.intervals['powerup']:
+            self.powerup_timer = random.randint(-50, 0)
+            lane = self.get_free_lane('powerup')
+            ptype = random.choice([POWERUP_NITRO, POWERUP_SHIELD, POWERUP_HEALTH])
             self.powerups.append(PowerUp(ptype, lane, self.current_speed))
-        
-        # Spawn dynamic events
-        self.event_timer += 1
-        if self.event_timer >= self.intervals['event']:
-            self.event_timer = 0
-            lane = random.randint(0, LANE_COUNT - 1)
-            event_type = random.choice([EVENT_NITRO_BOOST, EVENT_SPEED_BUMP, EVENT_MOVING_BARRIER])
-            self.events.append(DynamicEvent(event_type, lane))
     
     def update_enemies(self):
         for e in self.enemies[:]:
@@ -570,39 +582,36 @@ class Game:
             if p.is_off_screen() or p.expired():
                 self.powerups.remove(p)
     
-    def update_events(self):
-        for e in self.events[:]:
-            e.update()
-            if e.is_off_screen():
-                self.events.remove(e)
-    
     def check_collisions(self):
-        """Check all collisions"""
+        """Check all collisions with proper damage system"""
         # Enemy collision
-        for e in self.enemies:
+        for e in self.enemies[:]:
             if self.player.rect.colliderect(e.rect):
-                if self.player.shield_active:
-                    self.player.shield_active = False
-                    self.player.shield_timer = 0
-                    self.set_message("Shield protected you!")
+                if self.player.take_damage(10):  # Enemy does 10 damage
+                    self.set_message(f"CRASH! -10 HP! Health: {self.player.health}")
                     self.enemies.remove(e)
+                    if self.player.health <= 0:
+                        self.running = False
+                        return
                 else:
-                    self.running = False
-                return
+                    self.set_message("Shield blocked the crash!")
+                    self.enemies.remove(e)
         
-        # Obstacle collision
-        for o in self.obstacles:
-            if self.player.rect.colliderect(o.rect):
-                if o.type == OBSTACLE_OIL:
-                    self.player.speed_multiplier = 0.5
-                    self.set_message("Oil spill! Slowing down...")
-                elif o.type == OBSTACLE_POTHOLE:
-                    self.score = max(0, self.score - 50)
-                    self.set_message("Pothole! -50 points")
+        # Obstacle collision with cooldown
+        for o in self.obstacles[:]:
+            if self.player.rect.colliderect(o.rect) and self.damage_cooldown <= 0:
+                damage_taken = self.player.take_damage(o.damage)
+                if damage_taken:
+                    self.set_message(f"{o.effect}! -{o.damage} HP! Health: {self.player.health}")
+                    # Apply speed reduction for oil
+                    if o.type == OBSTACLE_OIL:
+                        self.player.speed_multiplier = 0.5
                 else:
-                    self.set_message("Barrier! Stopped!")
-                    self.player.speed_multiplier = 0.3
+                    self.set_message(f"Shield blocked {o.effect}!")
+                
                 self.obstacles.remove(o)
+                self.damage_cooldown = 30  # 0.5 second cooldown at 60fps
+                continue
         
         # Coin collection
         for c in self.coins[:]:
@@ -610,7 +619,7 @@ class Game:
                 self.coins.remove(c)
                 self.total_coins += c.value
                 self.score += c.value * 10
-                self.set_message(f"+{c.value} coins!")
+                self.set_message(f"+{c.value} coin!")
         
         # Power-up collection
         for p in self.powerups[:]:
@@ -618,17 +627,6 @@ class Game:
                 self.powerups.remove(p)
                 self.activate_powerup(p.type, p.duration)
                 self.set_message(p.message)
-        
-        # Dynamic event collision
-        for e in self.events[:]:
-            if self.player.rect.colliderect(e.rect):
-                if e.type == EVENT_NITRO_BOOST:
-                    self.player.speed_multiplier = 2.0
-                    self.set_message("Nitro Boost! Speed x2!")
-                elif e.type == EVENT_SPEED_BUMP:
-                    self.set_message("Speed bump!")
-                    self.player.speed_multiplier = 0.7
-                self.events.remove(e)
     
     def activate_powerup(self, powerup_type, duration):
         """Activate collected power-up"""
@@ -636,19 +634,19 @@ class Game:
         self.powerup_timer_active = duration
         
         if powerup_type == POWERUP_NITRO:
-            self.player.speed_multiplier = 1.8
+            self.player.apply_nitro(duration)
+            self.set_message("NITRO BOOST! Speed x2!")
         elif powerup_type == POWERUP_SHIELD:
-            self.player.shield_active = True
-        elif powerup_type == POWERUP_REPAIR:
-            if self.obstacles:
-                self.obstacles.pop(0)
-            self.player.speed_multiplier = 1.0
-            self.player.shield_active = False
+            self.player.apply_shield(duration)
+            self.set_message("SHIELD ACTIVATED!")
+        elif powerup_type == POWERUP_HEALTH:
+            self.player.apply_health(5)
+            self.set_message(f"+5 HEALTH! Health: {self.player.health}")
     
     def set_message(self, msg):
         """Show a temporary message"""
         self.powerup_message = msg
-        self.message_timer = 60
+        self.message_timer = 240  # ← This controls message duration (60 frames = 1 second)
     
     def draw(self):
         """Draw everything"""
@@ -662,8 +660,6 @@ class Game:
             c.draw(self.screen)
         for p in self.powerups:
             p.draw(self.screen)
-        for e in self.events:
-            e.draw(self.screen)
         
         self.player.draw(self.screen)
         self.draw_hud()
@@ -672,6 +668,10 @@ class Game:
             font = pygame.font.SysFont("Arial", 18, bold=True)
             text = font.render(self.powerup_message, True, YELLOW)
             text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, 100))
+            # Draw background for text
+            bg_rect = text_rect.inflate(20, 10)
+            pygame.draw.rect(self.screen, BLACK, bg_rect)
+            pygame.draw.rect(self.screen, YELLOW, bg_rect, 2)
             self.screen.blit(text, text_rect)
         
         if self.paused:
@@ -681,7 +681,7 @@ class Game:
         """Draw scrolling road"""
         self.screen.fill((34, 120, 34))
         pygame.draw.rect(self.screen, GRAY,
-                         (ROAD_LEFT, 0, ROAD_RIGHT - ROAD_LEFT, SCREEN_HEIGHT))
+                        (ROAD_LEFT, 0, ROAD_RIGHT - ROAD_LEFT, SCREEN_HEIGHT))
         pygame.draw.rect(self.screen, WHITE, (ROAD_LEFT, 0, 4, SCREEN_HEIGHT))
         pygame.draw.rect(self.screen, WHITE, (ROAD_RIGHT - 4, 0, 4, SCREEN_HEIGHT))
         
@@ -696,28 +696,48 @@ class Game:
         font = pygame.font.SysFont("Arial", 18, bold=True)
         font_small = pygame.font.SysFont("Arial", 14)
         
+        # Health bar
+        health_width = 150
+        health_height = 15
+        health_x = 8
+        health_y = 75
+        health_percent = self.player.health / self.player.MAX_HEALTH
+        
+        pygame.draw.rect(self.screen, RED, (health_x, health_y, health_width, health_height))
+        pygame.draw.rect(self.screen, GREEN, (health_x, health_y, health_width * health_percent, health_height))
+        pygame.draw.rect(self.screen, WHITE, (health_x, health_y, health_width, health_height), 2)
+        
+        health_text = font_small.render(f"HP: {self.player.health}/{self.player.MAX_HEALTH}", True, WHITE)
+        self.screen.blit(health_text, (health_x + 5, health_y - 12))
+        
         # Score and distance
         score_text = font.render(f"Score: {self.score}", True, WHITE)
         dist_text = font.render(f"Distance: {int(self.distance)}m", True, WHITE)
         coin_text = font.render(f"Coins: {self.total_coins}", True, YELLOW)
+        multi_text = font_small.render(f"x{self.score_multiplier}", True, ORANGE)
         
         self.screen.blit(score_text, (8, 8))
         self.screen.blit(dist_text, (8, 30))
         self.screen.blit(coin_text, (8, 52))
+        self.screen.blit(multi_text, (120, 8))
         
         # Speed
-        speed_text = font.render(f"Speed: {int(self.current_speed * 15)}km/h", True, WHITE)
-        self.screen.blit(speed_text, (SCREEN_WIDTH - 120, 8))
+        speed_value = int(self.current_speed * 15)
+        speed_text = font.render(f"Speed: {speed_value}km/h", True, WHITE)
+        if self.player.nitro_active:
+            speed_text = font.render(f"Speed: {speed_value}km/h", True, YELLOW)
+        self.screen.blit(speed_text, (SCREEN_WIDTH - 130, 8))
         
-        # Active power-up
+        # Active power-up indicator
         if self.active_powerup and self.powerup_timer_active > 0:
-            time_left = int(self.powerup_timer_active / 60)
-            power_text = font_small.render(f"{self.active_powerup}: {time_left}s", True, CYAN)
+            time_left = int(self.powerup_timer_active / 60) + 1
+            color = YELLOW if self.active_powerup == POWERUP_NITRO else CYAN if self.active_powerup == POWERUP_SHIELD else GREEN
+            power_text = font_small.render(f"{self.active_powerup.upper()}: {time_left}s", True, color)
             self.screen.blit(power_text, (SCREEN_WIDTH - 130, 30))
         
         # Controls hint
-        controls = font_small.render("← → ↑ ↓", True, GRAY)
-        self.screen.blit(controls, (SCREEN_WIDTH - 80, 55))
+        controls = font_small.render("← → ↑ ↓  P:Pause", True, GRAY)
+        self.screen.blit(controls, (SCREEN_WIDTH - 140, SCREEN_HEIGHT - 20))
     
     def draw_pause(self):
         """Draw pause screen"""
@@ -726,11 +746,13 @@ class Game:
         overlay.fill(BLACK)
         self.screen.blit(overlay, (0, 0))
         
-        font_big = pygame.font.SysFont("Arial", 36, bold=True)
+        font_big = pygame.font.SysFont("Arial", 48, bold=True)
         font_small = pygame.font.SysFont("Arial", 18)
         
         pause_text = font_big.render("PAUSED", True, WHITE)
         resume_text = font_small.render("Press P to resume", True, WHITE)
+        quit_text = font_small.render("Press ESC to quit", True, GRAY)
         
         self.screen.blit(pause_text, (SCREEN_WIDTH // 2 - pause_text.get_width() // 2, 250))
         self.screen.blit(resume_text, (SCREEN_WIDTH // 2 - resume_text.get_width() // 2, 320))
+        self.screen.blit(quit_text, (SCREEN_WIDTH // 2 - quit_text.get_width() // 2, 350))

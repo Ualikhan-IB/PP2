@@ -1,9 +1,9 @@
 {
-  "difficulty": "medium",
+  "difficulty": "hard",
   "car_color": [
-    220,
-    30,
-    30
+    160,
+    32,
+    240
   ],
-  "sound": false
+  "sound": true
 }

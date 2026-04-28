@@ -20,6 +20,8 @@ class Snake:
         self.grew = False
         self.shield_active = False
         self.shield_until = 0
+        self.slow_until = 0
+        self.original_move_delay = 0
     
     def set_direction(self, dx, dy):
         if (dx, dy) != (-self.direction[0], -self.direction[1]):
@@ -80,6 +82,14 @@ class Snake:
             color = snake_color if i == 0 else snake_body_color
             pygame.draw.rect(surface, color, (px+1, py+1, CELL-2, CELL-2), border_radius=4)
             pygame.draw.rect(surface, SNAKE_OUTLINE, (px+1, py+1, CELL-2, CELL-2), 1, border_radius=4)
+        
+        # Draw shield effect if active
+        if self.shield_active:
+            head_col, head_row = self.body[0]
+            px, py = cell_to_px(head_col, head_row)
+            cx, cy = px + CELL // 2, py + CELL // 2
+            pygame.draw.circle(surface, (100, 200, 255), (cx, cy), CELL // 2 + 2, 3)
+            pygame.draw.circle(surface, (150, 220, 255), (cx, cy), CELL // 2 + 4, 1)
 
 class Food:
     def __init__(self):
@@ -160,6 +170,48 @@ class PoisonFood:
         pygame.draw.line(surface, (50, 50, 50), (cx+5, cy-5), (cx-5, cy+5), 2)
         lbl = font_small.render("-2", True, TEXT_COLOR)
         surface.blit(lbl, (cx - lbl.get_width()//2, cy - lbl.get_height()//2))
+
+class SlowField:
+    """Sludge/Slow field that slows down the snake when touched"""
+    def __init__(self):
+        self.pos = (0, 0)
+        self.active = False
+        self.spawn_time = 0
+    
+    def spawn(self, snake_body, obstacles=None):
+        free = [(c, r) for c in range(COLS) for r in range(ROWS)
+                if (c, r) not in snake_body and (not obstacles or (c, r) not in obstacles)]
+        if free and not self.active:
+            self.pos = random.choice(free)
+            self.active = True
+            self.spawn_time = pygame.time.get_ticks()
+            return True
+        return False
+    
+    def expired(self, current_time):
+        return current_time - self.spawn_time >= FOOD_LIFETIME
+    
+    def draw(self, surface, current_time, font_small):
+        if not self.active or self.expired(current_time):
+            return
+        col, row = self.pos
+        px, py = cell_to_px(col, row)
+        cx, cy = px + CELL // 2, py + CELL // 2
+        
+        # Draw purple sludge/goo effect
+        pygame.draw.circle(surface, (128, 0, 128), (cx, cy), CELL // 2 - 2)
+        pygame.draw.circle(surface, (180, 50, 180), (cx-2, cy-2), 4)
+        
+        # Draw snail/slow symbol
+        lbl = font_small.render("🐌", True, TEXT_COLOR)
+        surface.blit(lbl, (cx - lbl.get_width()//2, cy - lbl.get_height()//2))
+        
+        # Timer bar
+        remaining = (FOOD_LIFETIME - (current_time - self.spawn_time)) / FOOD_LIFETIME
+        bar_x, bar_y = px, py + CELL + BAR_PAD
+        bar_col = (255, 165, 0)
+        pygame.draw.rect(surface, (40, 40, 40), (bar_x, bar_y, CELL, BAR_H), border_radius=3)
+        pygame.draw.rect(surface, bar_col, (bar_x, bar_y, max(1, int(CELL * remaining)), BAR_H), border_radius=3)
 
 class PowerUp:
     def __init__(self, power_type, color, symbol):

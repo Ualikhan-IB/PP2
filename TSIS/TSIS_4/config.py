@@ -15,14 +15,14 @@ HEIGHT = ROWS * CELL + PANEL_H + BOTTOM
 
 # Game settings
 BASE_FPS = 60
-BASE_MOVE = 8
+BASE_MOVE = 15  # Changed from 10 to 15 (slower)
 FOOD_PER_LEVEL = 4
-FOOD_LIFETIME = 6000  # milliseconds
+FOOD_LIFETIME = 6000
 POWERUP_DURATION = 5000
 POWERUP_LIFETIME = 8000
 OBSTACLES_FROM_LEVEL = 3
 
-# Colors
+# Colors (keep as is)
 BG_COLOR = (15, 15, 15)
 GRID_COLOR = (30, 30, 30)
 SNAKE_HEAD = (50, 220, 50)
@@ -37,7 +37,7 @@ DARK_RED = (139, 0, 0)
 PURPLE = (200, 50, 220)
 ORANGE = (255, 165, 0)
 
-# Food types (weight, points, color, shine)
+# Food types
 FOOD_TYPES = [
     (60, 1, (220, 50, 50), (255, 120, 120), "normal"),
     (25, 3, (50, 200, 255), (150, 230, 255), "bonus"),
@@ -49,13 +49,14 @@ FOOD_TYPES = [
 POWERUP_TYPES = [
     ("speed_boost", (100, 255, 100), "⚡"),
     ("slow_motion", (100, 100, 255), "🐢"),
-    ("shield", (255, 200, 0), "🛡"),
+    ("shield", (100, 200, 255), "🛡"),
 ]
 
-# Database config - CHANGE THIS TO YOUR PASSWORD
+# Database config
 DB_CONFIG = {
     'host': 'localhost',
     'port': 5432,
     'database': 'snake_game',
     'user': 'postgres',
-    'password': 'Ualikhan_PP2'  }
+    'password': 'Ualikhan_PP2'
+}
