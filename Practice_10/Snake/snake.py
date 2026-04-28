@@ -31,7 +31,7 @@ BASE_FPS  = 60
 BASE_MOVE = 8    # number of frames between snake steps (the smaller the faster)
 
 # Points for food to advance to the next level
-FOOD_PER_LEVEL = 4
+FOOD_PER_LEVEL = 5
 
 # Setting up the screen and fonts
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
